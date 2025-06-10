@@ -51,7 +51,7 @@ def process_and_resample_images(
     mask_path: str,
     image_output_path: str,
     mask_output_path: str,
-    output_spacing: List[float] = [2.0, 2.0, 2.0],
+    output_spacing: List[float] = [1.0, 1.0, 1.0],
     
 ) -> Tuple[Optional[sitk.Image], Optional[sitk.Image], List[int]]:
     """
@@ -75,10 +75,6 @@ def process_and_resample_images(
         print(f"Failed to read images: {e}")
         return None, None, []
 
-    # Print initial information
-    # print_image_info(image, "Original Image")
-    # print_image_info(mask, "Original Mask")
-
     # Convert image to float32 for better interpolation
     image_float = sitk.Cast(image, sitk.sitkFloat32)
 
@@ -87,7 +83,7 @@ def process_and_resample_images(
         image_float,
         output_spacing,
         sitk.sitkBSpline3,
-        default_pixel_value=-1024.0
+        default_pixel_value=float(sitk.GetArrayViewFromImage(image).min())
     )
 
     # Resample mask with Nearest Neighbor
@@ -100,8 +96,6 @@ def process_and_resample_images(
 
     # Verify results and save
     if resampled_image and resampled_mask:
-        # print_image_info(resampled_image, "Resampled Image")
-        # print_image_info(resampled_mask, "Resampled Mask")
         sitk.WriteImage(resampled_image, image_output_path)
         sitk.WriteImage(resampled_mask, mask_output_path)
     else:
@@ -111,8 +105,8 @@ def process_and_resample_images(
     return resampled_image, resampled_mask
 
 def process_images_multithreaded(
-    path0: str = "/home/laicy/data/exterenal_validation_set/CT_data/original/",
-    save_path0: str = "/home/laicy/data/exterenal_validation_set/CT_data/nii_resample/",
+    path0: str = "/data/laicy/data/train_set/CT_data/original/",
+    save_path0: str = "/data/laicy/data/train_set/CT_data/nii_resample/",
     max_workers: int = 16  # 线程池最大工作线程数
 ) -> None:
     """
@@ -123,10 +117,13 @@ def process_images_multithreaded(
         save_path0: Root directory for saving resampled images
         max_workers: Maximum number of threads
     """
-    path1 = listdir(path0)  # 模态缺失/模态齐全
-    path2 = listdir(path0 + path1[0])  # 免疫/化疗
-    path3 = listdir(path0 + path1[0] + "/" + path2[0])  # 动脉/静脉
+    # path1 = listdir(path0)  # 模态缺失/模态齐全
+    # path2 = listdir(path0 + path1[0])  # 免疫/化疗
+    # path3 = listdir(path0 + path1[0] + "/" + path2[0])  # 动脉/静脉
 
+    path1=['模态缺失']
+    path2=['新辅助化疗']
+    path3=['静脉期']
     tasks = []
     for path1_i in path1:
         for path2_i in path2:

@@ -116,11 +116,11 @@ def process_single_npz2(item, output_dir, dataset_type, label_name="TRG",augment
             if phase == 'artery':
                 image_path = item['artery_path']
                 mask_path = item['artery_mask']
-                artery=save_tumor2jpg_rotated_rect(sample_name,image_path,mask_path)
+                artery=save_tumor2jpg_rotated_square(sample_name,image_path,mask_path)  #根据选择的处理方式来对数据进行处理
             else:
                 image_path = item['vein_path']
                 mask_path = item['vein_mask']
-                vein=save_tumor2jpg_rotated_rect(sample_name,image_path,mask_path)
+                vein=save_tumor2jpg_rotated_square(sample_name,image_path,mask_path)
         if augment:
             artery = augment_ct_volume(artery)  #修改
             vein = augment_ct_volume(vein)                
@@ -204,10 +204,10 @@ def process_ct_npz(json_path, output_dir, dataset_type='Training', plot=False,la
 
 
 if __name__ == "__main__":
-    json_path = "/data/laicy/data/train_set/CT_data/data_splits/response/all_dataset_ex.json"
-    output_dir = "/data/laicy/data/train_set/CT_data/processed_2d/response/"
+    json_path = "/data/laicy/data/train_set/CT_data/data_splits/response/full_dataset_ex.json"
+    output_dir = "/data/laicy/data/train_set/CT_data/processed_2d/response_square/"
     
     max_workers = 16
     
     # 处理数据
-    process_ct_npz(json_path, output_dir, dataset_type='Val_all_ex', plot=False,label_name="Response（0 no response,1 response）",augment=False, max_workers=max_workers)
+    process_ct_npz(json_path, output_dir, dataset_type='Val_full_ex', plot=False,label_name="Response（0 no response,1 response）",augment=False, max_workers=max_workers)

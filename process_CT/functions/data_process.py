@@ -146,107 +146,6 @@ def resample_image(image, mask, target_spacing=[1.0, 1.0, 1.0]):
 
     return resampled_image, resampled_mask
 
-# def load_nii(ct_path, ct_mask_path, num, resample=False, plot=None, enhance=True,
-#              window_width=350,window_level=50):
-#     """
-#     加载处理nii文件，将其转换成numpy，并可选增强肿瘤区域
-#     参数:
-#         ct_path: CT图像的路径 (.nii)
-#         ct_mask_path: 掩膜图像的路径 (.nii)
-#         num: 用于保存gif的文件名编号
-#         resample: 是否进行重采样
-#         plot: 是否生成并保存gif（None 或 True）
-#         enhance: 是否进行图像增强
-#     返回:
-#         result['image']: 图像矩阵，（z,x,y）
-#         result['mask']: mask矩阵，尺寸和image相同
-#         result['lagc_indices']: mask中有标注的帧
-#     """
-#     # 1. 读取图像和掩膜
-#     image = sitk.ReadImage(ct_path)
-#     image = sitk.IntensityWindowing(image, 0, 255)  # 初始强度窗调整
-#     mask = sitk.ReadImage(ct_mask_path)
-
-#     # 2. 重采样
-#     if resample:
-#         target_spacing = [1.0, 1.0, 1.0]
-#         image, mask = resample_image(image, mask, target_spacing)
-
-#     # 3. 转换为numpy数组并调整方向
-#     direction = image.GetDirection()
-#     image_array = sitk.GetArrayFromImage(image).astype(np.float32)
-#     mask_array = sitk.GetArrayFromImage(mask)
-
-#     if direction[0] < 0:
-#         np.flip(image_array, axis=2)
-#         np.flip(mask_array, axis=2)
-#     if direction[4] < 0:
-#         np.flip(image_array, axis=1)
-#         np.flip(mask_array, axis=1)
-#     if direction[8] < 0:
-#         np.flip(image_array, axis=0)
-#         np.flip(mask_array, axis=0)
-
-#     # 4. 窗宽窗位调整（HU范围）
-#     hu_min = window_level - window_width / 2
-#     hu_max = window_level + window_width / 2
-#     image_array = np.clip(image_array, hu_min, hu_max)
-#     image_array = (image_array - hu_min) / (hu_max - hu_min) * 255
-#     image_array = image_array.astype(np.uint8)
-
-#     # 5. 判断image和mask尺寸是否匹配
-#     if image_array.shape != mask_array.shape:
-#         raise ValueError(f'size mismatch: the size of image:{image_array.shape}, but the size of mask:{mask_array.shape}')
-
-#     # 6. 图像增强
-#     if enhance:
-#         # 初始化增强结果数组
-#         enhanced_image = np.zeros_like(image_array)
-#         # 对每一帧进行CLAHE增强
-#         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-#         for z in range(image_array.shape[0]):
-#             frame = image_array[z]
-#             enhanced_frame = clahe.apply(frame)
-#             enhanced_image[z] = enhanced_frame
-#         image_array = enhanced_image
-
-#     # 7. 找到有标注的帧
-#     lagc_indices = [i for i in range(mask_array.shape[0]) if not np.all(mask_array[i] == 0)]
-#     # 找到maskz最大的一帧
-#     nonzero_counts = [np.count_nonzero(mask_array[i]) for i in range(mask_array.shape[0])]
-#     max_frame_idx = np.argmax(nonzero_counts)
-    
-#     # 8. 对CT进行标准化
-#     image_array = standardize_ct_per_slice(image_array)
-
-#     # 9. 返回结果
-#     result = {
-#         'image': image_array,
-#         'mask': mask_array,
-#         'lagc_indices': lagc_indices,
-#         'max_frame_idx':max_frame_idx,
-#     }
-
-#     # 10. 生成gif（如果plot=True）
-#     if plot:
-#         outpath = 'CT_data/groudtruth_gif'
-#         if not exists(outpath):
-#             makedirs(outpath)
-#         frame = []
-#         for i in lagc_indices:
-#             plt.clf()
-#             plt.imshow(image_array[i], cmap='gray', vmin=0, vmax=255)
-#             plt.imshow(mask_array[i, :, :], alpha=0.3)
-#             plt.savefig('tem.png', bbox_inches='tight', pad_inches=0)
-#             image = Image.open('tem.png')
-#             frame.append(image.copy())
-#             image.close()
-#         if frame:  # 确保frame不为空
-#             frame[0].save(join(outpath, f'{num}.gif'), save_all=True, append_images=frame[1:], duration=170, loop=0)
-
-#     return result
-
-
 def load_nii(ct_path, ct_mask_path, num, resample=False, plot=False, enhance=True,
              window_width=350, window_level=50):
     """
@@ -760,7 +659,119 @@ def save_tumor2jpg_rotated_rect(num, ct_path, mask_path, plot=False):
         transforms.ToTensor()
     ])
     result = transform(cropped_3d).numpy().transpose(1, 2, 0)
+    #可视化
+    if plot:
+        fig, axs = plt.subplots(2, 3, figsize=(18, 5))
+        
+        # Original with overlay
+        rgb = cv2.cvtColor(img.astype(np.uint8), cv2.COLOR_GRAY2RGB)
+        rgb[msk > 0] = [255, 0, 0]
+        cv2.polylines(rgb, [box], True, (0, 255, 0), 2)
+        axs[0, 0].imshow(rgb)
+        axs[0, 0].set_title("Original with Overlay")
+        
+        # Rotated with overlay
+        rgb_rot = cv2.cvtColor(rotated_img.astype(np.uint8), cv2.COLOR_GRAY2RGB)
+        rgb_rot[rotated_msk > 0] = [255, 0, 0]
+        cv2.polylines(rgb_rot, [rotated_box], True, (0, 255, 0), 2)
+        axs[0, 1].imshow(rgb_rot)
+        axs[0, 1].set_title("Rotated with Overlay")
+        
+        # Cropped and transformed
+        axs[0, 2].imshow(cropped_uint8, cmap='gray')
+        axs[0, 2].set_title("Cropped Region")
+        axs[1, 0].imshow(result.squeeze(), cmap='gray')
+        axs[1, 0].set_title("Transformed Result")
+        axs[1, 1].imshow(cropped_3d.squeeze(), cmap='gray')
+        axs[1, 1].set_title("3-Channel Cropped")
+        
+        for ax in axs.flat:
+            ax.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"process_CT/images/{num}.png") 
+        plt.close()        
+    return result.transpose(2, 1, 0)
+
+
+def save_tumor2jpg_rotated_square(num, ct_path, mask_path, plot=False):
+    """旋转矩形进行肿瘤区域裁剪,裁剪出以肿瘤为中心的正方形。
+
+    Args:
+        num (_type_): ct_name,也就是编号,举例1-05778746-Pre.png
+        ct_path (_type_): ct源文件的路径
+        mask_path (_type_): mask文件的路径
+        plot (bool, optional): 决定是否绘制图像. Defaults to False.
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        transform之后的图像: （3，224，224）
+    """
     
+    
+    # 加载图像
+    data = load_nii(ct_path, mask_path, num, resample=False)
+    image, mask = data['image'][data['lagc_indices']], data['mask'][data['lagc_indices']]
+    
+    # 找到最大帧
+    max_idx = np.argmax(np.sum(mask, axis=(1, 2)))
+    img, msk = image[max_idx], mask[max_idx]
+    
+    # 找到边框
+    contours, _ = cv2.findContours(msk.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        raise ValueError("No valid contours found")
+    
+    rect = cv2.minAreaRect(max(contours, key=cv2.contourArea))
+    center, size, angle = rect
+    
+    # 旋转图像，让矩形边框和图像轴对齐
+    if angle < -45:
+        angle += 90
+        size = size[::-1]
+    
+    h, w = img.shape
+    M = cv2.getRotationMatrix2D((w//2, h//2), angle, 1.0)
+    rotated_img = cv2.warpAffine(img, M, (w, h))
+    rotated_msk = cv2.warpAffine(msk.astype(np.uint8), M, (w, h))
+    
+    # box = np.int0(cv2.boxPoints((center, (size[0]*1.05, size[1]*1.05), angle)))
+    box = np.int0(cv2.boxPoints(rect))
+    rotated_box = np.int0(cv2.transform(np.array([box]), M)[0])
+    
+    rotated_center_x, rotated_center_y = tuple(map(int, cv2.transform(np.array([[center]]), M)[0][0]))
+
+    final_side_length = int(max(size[0], size[1]) * 1.2) 
+    square_x_min = int(rotated_center_x - final_side_length / 2)
+    square_y_min = int(rotated_center_y - final_side_length / 2)
+    square_x_max = int(rotated_center_x + final_side_length / 2)
+    square_y_max = int(rotated_center_y + final_side_length / 2)
+    
+    cropped_temp = rotated_img[max(0, square_y_min):min(h, square_y_max),
+                               max(0, square_x_min):min(w, square_x_max)]    
+    pad_left = abs(min(0, square_x_min))
+    pad_right = abs(min(0, w - square_x_max))
+    pad_top = abs(min(0, square_y_min))
+    pad_bottom = abs(min(0, h - square_y_max))
+    
+    
+    cropped = cv2.copyMakeBorder(cropped_temp, pad_top, pad_bottom, pad_left, pad_right, cv2.BORDER_CONSTANT, value=0)
+    if cropped.shape[0] != final_side_length or cropped.shape[1] != final_side_length:
+        cropped = cv2.resize(cropped, (final_side_length, final_side_length), interpolation=cv2.cv2.INTER_CUBIC)
+
+    
+    cropped_uint8 = ((cropped - cropped.min()) / 
+                    (cropped.max() - cropped.min() + 1e-6) * 255).astype(np.uint8)
+    
+    # 转换成三通道并进行transform
+    cropped_3d = np.repeat(cropped_uint8[None, ...], 3, axis=0).transpose(1, 2, 0)
+    transform = transforms.Compose([
+        transforms.ToPILImage(),
+        transforms.Resize((224, 224)),
+        transforms.ToTensor()
+    ])
+    result = transform(cropped_3d).numpy().transpose(1, 2, 0)
     #可视化
     if plot:
         fig, axs = plt.subplots(2, 3, figsize=(18, 5))
